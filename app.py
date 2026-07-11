@@ -67,3 +67,4 @@ if selected:
         label="🔥 合計カロリー",
 
         value=f"{total} kcal"
+    )
