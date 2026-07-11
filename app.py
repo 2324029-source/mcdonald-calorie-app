@@ -1,70 +1,116 @@
 import streamlit as st
-
 import pandas as pd
 
+# -------------------
 # ページ設定
-
+# -------------------
 st.set_page_config(
-
     page_title="マクドナルド カロリー計算アプリ",
-
     page_icon="🍔",
-
     layout="wide"
-
 )
 
 st.title("🍔 マクドナルド カロリー計算アプリ")
-
 st.write("マクドナルド公式サイトの栄養情報をもとに作成")
 
+# -------------------
 # CSV読み込み
-
+# -------------------
 df = pd.read_csv("mcdonald_calorie.csv")
 
-# カテゴリー一覧を取得
+# カロリーを数値化
+df["カロリー(kcal)"] = pd.to_numeric(df["カロリー(kcal)"])
+
+# -------------------
+# カート作成
+# -------------------
+if "cart" not in st.session_state:
+    st.session_state.cart = []
+
+# -------------------
+# 商品選択
+# -------------------
+st.header("商品を追加")
 
 categories = sorted(df["カテゴリー"].unique())
 
-# カテゴリー選択
-
 category = st.selectbox(
-
-    "カテゴリーを選択してください",
-
+    "カテゴリー",
     categories
-
 )
 
-# 選択したカテゴリーの商品だけ表示
+filtered = df[df["カテゴリー"] == category]
 
-category_df = df[df["カテゴリー"] == category]
-
-# 商品選択
-
-selected = st.multiselect(
-
-    "商品を選択してください",
-
-    options=category_df["商品名"]
-
+item = st.selectbox(
+    "商品",
+    filtered["商品名"].tolist()
 )
 
-# 選択した商品のデータ
+if st.button("➕ 商品を追加"):
+    st.session_state.cart.append(item)
+    st.success(f"{item} を追加しました！")
 
-if selected:
+# -------------------
+# カート表示
+# -------------------
+st.divider()
 
-    result = df[df["商品名"].isin(selected)]
+st.header("🛒 選択した商品")
 
-    st.subheader("選択した商品")
+if len(st.session_state.cart) == 0:
 
-    st.dataframe(result, use_container_width=True)
+    st.info("まだ商品が追加されていません。")
 
-    total = result["カロリー(kcal)"].sum()
+else:
+
+    result = []
+
+    total = 0
+
+    for item in sorted(set(st.session_state.cart)):
+
+        count = st.session_state.cart.count(item)
+
+        calorie = int(
+            df.loc[df["商品名"] == item, "カロリー(kcal)"].iloc[0]
+        )
+
+        subtotal = calorie * count
+
+        total += subtotal
+
+        result.append({
+            "商品名": item,
+            "数量": count,
+            "カロリー": calorie,
+            "小計": subtotal
+        })
+
+    result_df = pd.DataFrame(result)
+
+    st.dataframe(
+        result_df,
+        hide_index=True,
+        use_container_width=True
+    )
 
     st.metric(
-
-        label="🔥 合計カロリー",
-
-        value=f"{total} kcal"
+        "🔥 合計カロリー",
+        f"{total} kcal"
     )
+
+# -------------------
+# ボタン
+# -------------------
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("🗑️ 全て削除"):
+        st.session_state.cart = []
+        st.rerun()
+
+with col2:
+    if st.button("➖ 最後の商品を削除"):
+        if len(st.session_state.cart) > 0:
+            st.session_state.cart.pop()
+            st.rerun()
